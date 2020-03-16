@@ -1,0 +1,54 @@
+[Service]
+  Port = 49992
+  ConnectRetries = 3
+  Labels = ["USB Serial"]
+  StartupMsg = "v4l2 camera device started"
+  Timeout = 5000
+  CheckInterval = "15s"
+
+[Clients]
+  [Clients.Data]
+    Host = "localhost"
+    Port = 48080
+
+  [Clients.Metadata]
+    Host = "localhost"
+    Port = 48081
+
+  [Clients.Command]
+    Host = "localhost"
+    Port = 48082
+
+  [Clients.Logging]
+    Host = "localhost"
+    Port = 48061
+
+[Device]
+  DataTransform = false
+  Discovery = false
+  InitCmd = ""
+  InitCmdArgs = ""
+  MaxCmdOps = 128
+  MaxCmdValueLen = 256
+  RemoveCmd = ""
+  RemoveCmdArgs = ""
+  ProfilesDir = ""
+
+[Logging]
+  EnableRemote = false
+  File = "./edgex-device-v4l2camera.log"
+  Level = "DEBUG"
+
+#Pre-define Devices
+[[DeviceList]]
+  Name = "USBCameraDevice01"
+  Profile = "USBCameraDevice"
+  Description = "USB Camera Device"
+  Labels = [ "USB Serial" ]
+  [DeviceList.Protocols]
+    [DeviceList.Protocols.Other]
+      Address = "/dev/video0"
+  [[DeviceList.AutoEvents]]
+    Resource = "Image"
+    OnChange = false
+    Frequency = "30s"

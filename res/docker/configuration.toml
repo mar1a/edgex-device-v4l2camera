@@ -1,0 +1,68 @@
+[Service]
+Host = "localhost"
+Port = 49992
+ConnectRetries = 3
+Labels = []
+OpenMsg = "usb camera example started"
+MaxResultCount = 50000
+Timeout = 5000
+EnableAsyncReadings = true
+AsyncBufferSize = 16
+
+[Registry]
+Host = "localhost"
+Port = 8500
+CheckInterval = "15s"
+FailLimit = 3
+FailWaitTime = 10
+Type = "consul"
+
+[Clients]
+  [Clients.Data]
+  Name = "edgex-core-data"
+  Protocol = "http"
+  Host = "localhost"
+  Port = 48080
+  Timeout = 5000
+
+  [Clients.Metadata]
+  Name = "edgex-core-metadata"
+  Protocol = "http"
+  Host = "localhost"
+  Port = 48081
+  Timeout = 5000
+
+  [Clients.Command]
+  Name = "edgex-core-command"
+  Protocol = "http"
+  Host = "localhost"
+  Port = 48082
+
+[Device]
+  DataTransform = true
+  InitCmd = ""
+  InitCmdArgs = ""
+  MaxCmdOps = 128
+  MaxCmdValueLen = 256
+  RemoveCmd = ""
+  RemoveCmdArgs = ""
+  ProfilesDir = "./res"
+
+[Logging]
+EnableRemote = false
+File = "./edgex-device-usbcamera.log"
+Level = "DEBUG"
+
+# Pre-define Devices
+[[DeviceList]]
+  Name = "USBCameraDevice01"
+  Profile = "USBCameraDevice"
+  Description = "USB Camera Device"
+  Labels = [ "USB Serial" ]
+  [DeviceList.Protocols]
+    [DeviceList.Protocols.Other]
+      Address = "/dev/video0"
+  [[DeviceList.AutoEvents]]
+    Resource = "Image"
+    OnChange = false
+    Frequency = "30s"

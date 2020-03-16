@@ -1,0 +1,39 @@
+name: "USBCameraDevice"
+manufacturer: "Dell Corp."
+model: "SP-01"
+labels:
+ - "USB Serial"
+description: "USB Camera Device"
+
+deviceResources:
+    -
+        name: "Image"
+        description: "CBOR encoded image data."
+        attributes:
+          { parameter: "Image" }
+        properties:
+            value:
+                { type: "Binary", readWrite: "R" }
+            units:
+                { type: "Binary", readWrite: "R", defaultValue: "" }
+
+deviceCommands:
+    -
+        name: "Image"
+        get:
+          - { operation: "get", object: "Image" }
+
+coreCommands:
+  -
+    name: "Image"
+    get:
+        path: "/api/v1/device/{deviceId}/Image"
+        responses:
+          -
+            code: "200"
+            description: "CBOR encoded image transmitted as event to Core-Data"
+            expectedValues: ["Image"]
+          -
+            code: "500"
+            description: "Internal Server Error"
+            expectedValues: []

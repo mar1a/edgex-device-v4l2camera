@@ -1,0 +1,148 @@
+name: edgex-device-v4l2camera
+base: core18
+version: "1.0.1"
+summary: Connect to usbcamera on Dell Gateway with EdgeX
+description: |
+  The EdgeX Device usbcamera Service is developed to control/communicate usbcamera 
+  connected to Dell Gateway in an EdgeX deployment 
+
+architectures:
+  - build-on: amd64
+
+grade: devel
+confinement: devmode
+
+apps:
+  device-v4l2camera:
+    command: bin/edgex_device_v4l2camera $CONFIG_DIR_OPT $CONSUL_ADDR_OPT
+    adapter: full
+    environment:
+      CONSUL_ADDR_OPT: "--registry=consul://localhost:8500"
+      CONFIG_DIR_OPT: "--confdir=$SNAP/res"
+    daemon: simple
+    plugs:
+      - home
+      - raw-usb
+      - serial-port
+      - network
+      - network-bind
+parts:
+  config:
+    source: ..
+    plugin: dump
+    organize:
+      res/configuration.toml: config/edgex-device-v4l2camera/res/configuration.toml
+      res/USBCameraDevice.yaml: config/edgex-device-v4l2camera/res/profiles/USBCameraDevice.yaml
+    override-build: |
+      snapcraftctl build
+      # change the host specifications to be localhost for the snap
+      sed -i \
+        -e s'@Host = \"edgex-device-v4l2camera\"@Host = \"localhost\"@' \
+        -e s'@Host = \"edgex-core-data\"@Host = \"localhost\"@' \
+        -e s'@Host = \"edgex-core-metadata\"@Host = \"localhost\"@' \
+        -e s'@ProfilesDir = \"\"@ProfilesDir = \"\$SNAP_DATA/config/edgex-device-grove/res/profiles\"@' \
+        $SNAPCRAFT_PART_INSTALL/res/configuration.toml
+      mkdir -p $SNAPCRAFT_PART_INSTALL/usr/share/doc/edgex-device-v4l2camera
+      mkdir -p $SNAPCRAFT_PART_INSTALL/config
+    stage: 
+      - config/*
+    prime: 
+      - config/*
+  libmraa:
+    source: https://github.com/intel-iot-devkit/mraa.git
+    source-commit: d320776
+    plugin: cmake
+    configflags:
+      - -DBUILDSWIG=OFF
+    override-build: |
+      cd $SNAPCRAFT_PART_SRC
+      snapcraftctl build
+    prime:
+      - lib/libmraa*
+    # see https://github.com/intel-iot-devkit/mraa/blob/master/docs/building.md#build-dependencies
+    # for this list, but note since we aren't consuming the python or nodejs
+    # bindings and those are slightly complicated for building on bionic, we
+    # just drop those dependencies and ignore the warnings from cmake when 
+    # building libmraa
+    build-packages:
+      - g++
+      - python3-dev
+      - libjson-c-dev
+  tomlc99:
+    source: https://github.com/IOTechSystems/tomlc99.git
+    source-tag: SDK-0.2
+    source-depth: 1
+    plugin: dump
+    # see https://github.com/edgexfoundry/device-sdk-c/blob/edinburgh/scripts/build.sh#L42-L45
+    # for how the c sdk expects these files to be organized
+    organize:
+      toml.c: src/c/toml.c
+      toml.h: src/c/toml.h
+    stage:
+      - src/c
+    prime: [-*]
+  iotech-c-utils:
+    source: https://github.com/IOTechSystems/iotech-c-utils.git
+    source-tag: v0.8.1
+    source-depth: 1
+    plugin: dump
+    # see https://github.com/edgexfoundry/device-sdk-c/blob/edinburgh/scripts/build.sh#L47-L69
+    # for how the c sdk expects these files to be organized
+    override-build: |
+      snapcraftctl build
+      # can't use the organize + stage keywords otherwise it hits a infinite
+      # recursion error trying to move the dir to it's subdir first
+      mkdir -p $SNAPCRAFT_STAGE/src/c/iot
+      cp -r $SNAPCRAFT_PART_SRC/src/c/*.c $SNAPCRAFT_STAGE/src/c/iot
+    stage: 
+      - include/iot/*.h
+      - include/iot/os
+    prime: [-*]
+  device-sdk-c:
+    after: 
+      - tomlc99
+      - iotech-c-utils
+    plugin: cmake
+    configflags: 
+      - -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+      - -DCMAKE_BUILD_TYPE=Release
+    source: https://github.com/edgexfoundry/device-sdk-c.git
+    source-branch: fuji
+    source-subdir: src
+    override-build: |
+      # copy all of the dep sources from $SNAPCRAFT_STAGE into the build folder
+      cd $SNAPCRAFT_PART_SRC
+      cp -r $SNAPCRAFT_STAGE/src/c/* src/c/
+      cp -r $SNAPCRAFT_STAGE/include/* include/
+      snapcraftctl build
+    build-packages:
+      - libcurl4-openssl-dev
+      - libmicrohttpd-dev
+      - libyaml-dev
+      - uuid-dev
+      - libcbor-dev
+  edgex-device-v4l2camera:
+    source: ..
+    source-type: local
+    plugin: cmake
+    configflags: 
+      - -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+      - -DCMAKE_BUILD_TYPE=Release
+    after: 
+      - device-sdk-c
+    override-build: |
+      cd $SNAPCRAFT_PART_SRC
+      snapcraftctl build
+    stage-packages:
+      - libv4l-dev
+      - v4l-utils
+      - libjpeg-dev
+  pkgs:
+    plugin: nil
+    stage-packages:
+      - libcurl4-openssl-dev
+      - libmicrohttpd-dev
+      - libyaml-dev
+      - uuid-runtime
+      - libcbor0
+      - curl

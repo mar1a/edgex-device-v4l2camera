@@ -1,0 +1,32 @@
+FROM alpine:3.9 as builder
+RUN apk add --update --no-cache build-base git gcc cmake make linux-headers yaml-dev libmicrohttpd-dev curl-dev util-linux-dev ncurses-dev v4l-utils-dev libjpeg-turbo-dev
+
+COPY . /edgex-device-v4l2camera/
+RUN mkdir -p /edgex-device-v4l2camera/build
+
+WORKDIR /edgex-device-v4l2camera
+RUN chmod +x ./scripts/build_deps.sh
+RUN ./scripts/build_deps.sh
+
+# RUN rm -rf /edgex-device-v4l2camera/cmake/*
+
+WORKDIR /edgex-device-v4l2camera/cmake
+RUN cmake -DCMAKE_BUILD_TYPE=Release ..
+RUN make && make install
+
+FROM alpine:3.9
+
+RUN apk add --update --no-cache linux-headers yaml libmicrohttpd curl libuuid v4l-utils-libs
+
+COPY --from=builder /usr/local/bin/edgex_device_v4l2camera /usr/local/bin
+COPY --from=builder /usr/local/res /usr/local/res
+COPY --from=builder /usr/lib/libcsdk.so /usr/lib
+COPY --from=builder /usr/include/edgex /usr/include/edgex
+COPY --from=builder /usr/include/iot /usr/include/iot
+COPY --from=builder /usr/local/include/mraa /usr/local/include/
+COPY --from=builder /usr/local/include/mraa.h /usr/local/include/
+COPY --from=builder /usr/local/include/cbor /usr/local/include/cbor
+COPY --from=builder /usr/local/lib/libmraa.so* /usr/local/lib/
+COPY --from=builder /usr/local/lib64/libcbor.so* /usr/local/lib/
+
+ENTRYPOINT ["/usr/local/bin/edgex_device_v4l2camera", "--confdir=/usr/local/res", "--registry=consul://localhost:8500" ]
